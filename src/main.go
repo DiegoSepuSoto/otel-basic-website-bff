@@ -8,12 +8,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
+	"github.com/DiegoSepuSoto/basic-website-bff/src/tracing"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/otel"
-
-	"github.com/DiegoSepuSoto/basic-website-bff/src/tracing"
 )
 
 type OrderAPIResponse struct {
@@ -29,7 +29,7 @@ type OrderAPIResponse struct {
 func main() {
 	ctx := context.Background()
 
-	tp, err := tracing.InitTracerExporter(ctx)
+	tp, err := tracing.InitTelemetryExporter(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -50,8 +50,10 @@ func main() {
 }
 
 func getOrderHandler(c echo.Context) error {
-	ctx, span := otel.Tracer(tracing.TracerName).Start(c.Request().Context(), "getOrder")
+	ctx, span := otel.Tracer(tracing.TracerName).Start(c.Request().Context(), "getOrderHandler")
 	defer span.End()
+
+	time.Sleep(500 * time.Millisecond)
 
 	orderID := c.QueryParam("orderID")
 
@@ -68,7 +70,7 @@ func getOrderHandler(c echo.Context) error {
 
 	response, err := tracing.HTTPClient.Do(req)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "error making API request")
+		return echo.NewHTTPError(http.StatusInternalServerError, "error doing API request")
 	}
 
 	defer response.Body.Close()

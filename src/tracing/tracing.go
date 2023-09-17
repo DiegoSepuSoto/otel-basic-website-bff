@@ -9,11 +9,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"net/http"
-	"os"
 )
 
 const TracerName = "golang-echo-tracer"
@@ -22,28 +18,26 @@ var HTTPClient = &http.Client{
 	Transport: otelhttp.NewTransport(http.DefaultTransport),
 }
 
-func InitTracerExporter(ctx context.Context) (*sdktrace.TracerProvider, error) {
-	conn, err := grpc.DialContext(ctx, os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-		grpc.WithTransportCredentials(insecure.NewCredentials()))
+func InitTelemetryExporter(ctx context.Context) (*sdktrace.TracerProvider, error) {
+	res, err := resource.New(ctx, resource.WithFromEnv())
 	if err != nil {
-		return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)
+		return nil, fmt.Errorf("failed to create resource config: %w", err)
 	}
 
-	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
+	traceExporter, err := otlptracegrpc.New(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
 
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceName("basic-website-bff"),
-		)),
+		sdktrace.WithBatcher(traceExporter),
+		sdktrace.WithResource(res),
 	)
+
 	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+
+	propagator := propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})
+	otel.SetTextMapPropagator(propagator)
 
 	return tp, nil
 }
