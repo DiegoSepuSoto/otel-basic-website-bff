@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/DiegoSepuSoto/basic-website-bff/src/tracing"
 	"github.com/labstack/echo/v4"
+	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/otel"
 )
@@ -27,6 +27,9 @@ type OrderAPIResponse struct {
 }
 
 func main() {
+	log.SetFormatter(&log.JSONFormatter{})
+	log.SetOutput(os.Stdout)
+
 	ctx := context.Background()
 
 	tp, err := tracing.InitTelemetryExporter(ctx)
@@ -65,11 +68,13 @@ func getOrderHandler(c echo.Context) error {
 		nil,
 	)
 	if err != nil {
+		log.Errorf("error making API request %s", err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "error making API request")
 	}
 
 	response, err := tracing.HTTPClient.Do(req)
 	if err != nil {
+		log.Errorf("error doing API request %s", err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "error doing API request")
 	}
 
@@ -77,12 +82,14 @@ func getOrderHandler(c echo.Context) error {
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
+		log.Errorf("error reading API response %s", err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "error reading API response")
 	}
 
 	var orderAPIResponse OrderAPIResponse
 	err = json.Unmarshal(body, &orderAPIResponse)
 	if err != nil {
+		log.Errorf("error unmarshalling API response %s", err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "error unmarshalling API response")
 	}
 
