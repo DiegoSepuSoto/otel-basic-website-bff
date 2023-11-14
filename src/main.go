@@ -11,6 +11,7 @@ import (
 
 	"github.com/DiegoSepuSoto/basic-website-bff/src/tracing"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/otel"
@@ -46,6 +47,10 @@ func main() {
 	r := echo.New()
 	r.HideBanner = true
 	r.Use(otelecho.Middleware("basic-website-bff"))
+	r.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+	}))
 
 	r.GET("/order", getOrderHandler)
 
